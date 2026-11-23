@@ -1,0 +1,38 @@
+name: Buduj instalator Windows (test)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Rozpakuj kod
+        shell: pwsh
+        run: Expand-Archive -LiteralPath Win-CodexBar-PL-test-zrodla.zip -DestinationPath .
+      - name: Przygotuj narzedzia
+        shell: pwsh
+        run: |
+          npm install --global pnpm@11.25.0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          rustup toolchain install 1.98.0 --profile minimal
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          rustup default 1.98.0
+      - name: Buduj instalator NSIS
+        working-directory: Win-CodexBar-0.70.0/apps/desktop-tauri
+        shell: pwsh
+        run: |
+          pnpm install --frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pnpm exec tauri build --bundles nsis
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Win-CodexBar-PL-test-instalator
+          path: Win-CodexBar-0.70.0/**/bundle/nsis/*.exe
+          if-no-files-found: error
